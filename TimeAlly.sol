@@ -1,4 +1,4 @@
-pragma solidity ^0.5.10;
+pragma solidity ^0.5.2;
 
 import './SafeMath.sol';
 import './Eraswap.sol';
@@ -20,6 +20,8 @@ contract TimeAlly {
         uint256 months;
         uint256 fractionFrom15;
     }
+
+
 
     struct Loan {
         uint256 exaEsAmount;
@@ -250,32 +252,40 @@ contract TimeAlly {
 
 
     // Loan Function
-    function addLoan(
-        uint256 _stakingId,
-        uint32 loanperiod,
-        uint128 loanamount
-        )
-        external
-        onlyOwner()
-        returns(bool)
-    {
-        Loan memory loan;
-        loan.loanPeriod = loanperiod;
-        loan.loanAmount = uint128(loanamount);
-        loan.loanStartTime = uint32(now);
-        loan.loanListIndex = uint32((loanList.push(_stakingId)).sub(1));
-        loans[_stakingId] = loan;
-        return true;
+    
+    
+    // function addLoan(
+    //     uint256 _stakingId,
+    //     uint32 loanperiod,
+    //     uint128 loanamount
+    //     )
+    //     external
+    //     onlyOwner()
+    //     returns(bool)
+    // {
+    //     Loan memory loan;
+    //     loan.loanPeriod = loanperiod;
+    //     loan.loanAmount = uint128(loanamount);
+    //     loan.loanStartTime = uint32(now);
+    //     loan.loanListIndex = uint32((loanList.push(_stakingId)).sub(1));
+    //     loans[_stakingId] = loan;
+    //     return true;
+    // }
+
+    // function removeLoan(uint256 _stakingId)
+    //     external
+    //     onlyOwner()
+    //     returns(bool)
+    // {
+    //     require(deleteLoanListElement(loans[_stakingId].loanListIndex));
+    //     return true;
+    // }
+
+
+    function createLoanPlan(uint256 _loanPeriod, uint256 _loanRate) public onlyOwner() {
+        loanPlans.push(LoanPlan({ loanPeriod: _loanPeriod, loanRate: _loanRate }));
     }
 
-    function removeLoan(uint256 _stakingId)
-        external
-        onlyOwner()
-        returns(bool)
-    {
-        require(deleteLoanListElement(loans[_stakingId].loanListIndex));
-        return true;
-    }
 }
 
 
