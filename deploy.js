@@ -19,7 +19,7 @@ let tx
 , nrtManagerInstance
 , timeAllyInstance;
 
-console.log(process.argv);
+//console.log(process.argv);
 
 
 (async() => {
@@ -101,4 +101,4 @@ console.log(process.argv);
 
   const endTimestamp = Date.now();
   console.log(`\nDone in ${(endTimestamp - startTimestamp) / 1000} secs`);
-});
+})();
