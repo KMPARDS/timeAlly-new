@@ -1,4 +1,3 @@
-const assert = require('assert');
 const ethers = require('ethers');
 
 const ganache = require('ganache-cli');
