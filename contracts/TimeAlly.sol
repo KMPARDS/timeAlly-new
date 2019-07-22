@@ -51,8 +51,8 @@ contract TimeAlly {
     Eraswap public token;
     NRTManager public nrtManager;
 
-    uint256 deployedTimestamp;
-    uint256 earthSecondsInMonth = 2629744;
+    uint256 public deployedTimestamp;
+    uint256 public earthSecondsInMonth = 2629744;
 
     //uint256 public currentMonth;
     uint256[] public timeAllyMonthlyNRT; //current month is the length of this array
@@ -62,28 +62,41 @@ contract TimeAlly {
     LoanPlan[] public loanPlans;
 
     // user activity details:
-    mapping(address => Staking[]) stakings;
-    mapping(address => Loan[]) loans;
+    mapping(address => Staking[]) public stakings;
+    mapping(address => Loan[]) public loans;
     //mapping(address => mapping (uint256 => bool)) monthClaim;
 
     mapping (uint256 => uint256) public totalActiveStakings;
 
-    uint256 launchRewardBucket;
+    uint256 public launchRewardBucket;
     mapping(address => uint256) public launchReward;
 
     // need stakingid in this
     event NewStaking (
-        address indexed _staker,
+        address indexed _userAddress,
         uint256 indexed _stakePlanId,
         uint256 _exaEsAmount,
         uint256 _stakingId
     );
 
+    event BenefitWithdrawl (
+        address indexed _userAddress,
+        uint256 _atMonth,
+        uint256 _accruedPercentage,
+        bool _stakeAccruedNow,
+        uint256 _newStakingId // meaningless if bool is false
+    );
+
     event NewLoan (
-        address indexed _loaner,
+        address indexed _userAddress,
         uint256 indexed _loanPlanId,
         uint256 _exaEsAmount,
         uint256 _loanInterest,
+        uint256 _loanId
+    );
+
+    event RepayLoan (
+        address indexed _userAddress,
         uint256 _loanId
     );
 
@@ -240,7 +253,31 @@ contract TimeAlly {
         // multiply by the total timeally NRT to get the share and send it to user
 
         uint256 _currentMonth = getCurrentMonth();
-        require(_currentMonth >= _atMonth, 'cannot see future stakings');
+        //require(_currentMonth >= _atMonth, 'cannot see future stakings');
+
+        uint256 userActiveStakingsExaEsAmount;
+
+        for(uint256 i = 0; i < stakings[_userAddress].length; i++) {
+
+            // user staking should be active for it to be considered
+            if(isStakingActive(_userAddress, i, _currentMonth, _atMonth)) {
+                userActiveStakingsExaEsAmount = userActiveStakingsExaEsAmount
+                    .add(stakings[_userAddress][i].exaEsAmount);
+                    // .mul(stakingPlans[ stakings[_userAddress][i].stakingPlanId ].fractionFrom15)
+                    // .div(15));
+            }
+        }
+
+        return userActiveStakingsExaEsAmount;
+    }
+
+    function userEffectiveStakingByMonth(address _userAddress, uint256 _atMonth) public view returns (uint256) {
+        // calculate user's active stakings amount for this month
+        // divide by total active stakings to get the fraction.
+        // multiply by the total timeally NRT to get the share and send it to user
+
+        uint256 _currentMonth = getCurrentMonth();
+        //require(_currentMonth >= _atMonth, 'cannot see future stakings');
 
         uint256 userActiveStakingsExaEsAmount;
 
@@ -250,8 +287,8 @@ contract TimeAlly {
             if(isStakingActive(_userAddress, i, _currentMonth, _atMonth)) {
                 userActiveStakingsExaEsAmount = userActiveStakingsExaEsAmount
                     .add(stakings[_userAddress][i].exaEsAmount
-                    .mul(stakingPlans[ stakings[_userAddress][i].stakingPlanId ].fractionFrom15)
-                    .div(15));
+                      .mul(stakingPlans[ stakings[_userAddress][i].stakingPlanId ].fractionFrom15)
+                      .div(15));
             }
         }
 
@@ -291,7 +328,7 @@ contract TimeAlly {
 
         require(_currentMonth >= _atMonth, 'cannot withdraw future stakings');
 
-        if(totalActiveStakings[_currentMonth] == 0) {
+        if(totalActiveStakings[_atMonth] == 0) {
             require(false, 'total active stakings should be non zero');
         }
 
@@ -310,11 +347,16 @@ contract TimeAlly {
 
                 // for every staking, incrementing its accrued amount
                 uint256 _effectiveAmount = stakings[msg.sender][i].exaEsAmount.mul(_plan.fractionFrom15).div(15);
-                uint256 _accruedShare = _effectiveAmount.mul(_accruedPercentage).div(100);
+                uint256 _accruedShare = _effectiveAmount
+                                          .mul(timeAllyMonthlyNRT[_currentMonth])
+                                          .div(totalActiveStakings[_currentMonth])
+                                          .mul(_accruedPercentage).div(100);
                 if(_stakeAccruedNow) {
-                    stakings[msg.sender][i].accruedExaEsAmount = stakings[msg.sender][i].accruedExaEsAmount.add(_accruedShare);
-                } else {
+                    // add this number to temp variable and make staking of it in the end
                     _shareTotalCurrentAccrued = _shareTotalCurrentAccrued.add(_accruedShare);
+                } else {
+                    // mark the accrued in the staking
+                    stakings[msg.sender][i].accruedExaEsAmount = stakings[msg.sender][i].accruedExaEsAmount.add(_accruedShare);
                 }
                 _userActiveStakingsExaEsAmount = _userActiveStakingsExaEsAmount.add(_effectiveAmount);
             }
