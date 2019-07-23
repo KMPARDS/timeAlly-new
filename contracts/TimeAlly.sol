@@ -19,13 +19,14 @@ contract TimeAlly {
         uint256 exaEsAmount;
         uint256 timestamp;
         uint256 stakingPlanId;
-        uint256 status; // 1 => active; 2 => loaned; 3 => withdrawed; 4 => cancelled
+        uint256 status; // 1 => active; 2 => loaned; 3 => withdrawed; 4 => cancelled; 5 => nominiee
         uint256 accruedExaEsAmount;
         uint256 loanId;
-        mapping (uint256 => bool) isMonthClaimed;
         uint256 refundMonthClaimedLast;
         uint256 refundMonthsRemaining;
-
+        uint256 totalNominationShares;
+        mapping (uint256 => bool) isMonthClaimed;
+        mapping (address => uint256) nomination;
     }
 
     struct StakingPlan {
@@ -77,6 +78,13 @@ contract TimeAlly {
         uint256 indexed _stakePlanId,
         uint256 _exaEsAmount,
         uint256 _stakingId
+    );
+
+    event Nominee (
+        address indexed _userAddress,
+        uint256 indexed _stakingId,
+        address indexed _nomineeAddress,
+        uint256 _shares
     );
 
     event BenefitWithdrawl (
@@ -141,21 +149,20 @@ contract TimeAlly {
     }
 
     // takes ES from user and locks it for a time
-    function newStaking(uint256 _exaEsAmount, uint256 _stakingPlanId) public {
+    function newStaking(uint256 _exaEsAmount, uint256 _stakingPlanId, address[] memory _nomineeArray, uint256[] memory _perThousandShareArray) public {
         require(token.transferFrom(msg.sender, address(this), _exaEsAmount), 'could not transfer tokens');
-        uint256 stakeEndMonth = getCurrentMonth() + 1 + stakingPlans[_stakingPlanId].months;
+        uint256 _stakeEndMonth = getCurrentMonth() + 1 + stakingPlans[_stakingPlanId].months;
 
         // update the array so that staking would be automatically inactive after the stakingPlanMonthhs
         for(
-          uint256 month = getCurrentMonth() + 1;
-          month < stakeEndMonth;
+          uint256 _month = getCurrentMonth() + 1;
+          _month < _stakeEndMonth;
           month++
         ) {
-            totalActiveStakings[month] = totalActiveStakings[month] + _exaEsAmount;
+            totalActiveStakings[_month] = totalActiveStakings[_month].add(_exaEsAmount);
         }
 
-        Staking[] storage userStakingsArray = stakings[msg.sender];
-        userStakingsArray.push(Staking({
+        stakings[msg.sender].push(Staking({
             exaEsAmount: _exaEsAmount,
             timestamp: token.mou(),
             stakingPlanId: _stakingPlanId,
@@ -163,10 +170,18 @@ contract TimeAlly {
             accruedExaEsAmount: 0,
             loanId: 0,
             refundMonthClaimedLast: 0,
-            refundMonthsRemaining: 0
+            refundMonthsRemaining: 0,
+            totalNominationShares: 0
         }));
 
-        emit NewStaking(msg.sender, _stakingPlanId, _exaEsAmount, userStakingsArray.length - 1);
+        uint256 _stakingId = stakings[msg.sender].length - 1;
+        emit NewStaking(msg.sender, _stakingPlanId, _exaEsAmount, _stakingId);
+
+        for(uint256 i = 0; i < _nomineeArray.length; i++) {
+            stakings[msg.sender][_stakingId].totalNominationShares = stakings[msg.sender][_stakingId].totalNominationShares.add(_perThousandShareArray[i])
+            stakings[msg.sender][_stakingId].nomination[_nomineeArray[i]] = _perThousandShareArray[i];
+            emit Nominee(msg.sender, _stakingPlanId, _nomineeArray[i], _perThousandShareArray[i]);
+        }
     }
 
     function getNumberOfStakingsByUser(address _userAddress) public view returns (uint256) {
@@ -197,6 +212,13 @@ contract TimeAlly {
         for(uint256 i = 0; i < _addresses.length; i++) {
             launchRewardBucket = launchRewardBucket.sub(_exaEsAmount);
             launchReward[_addresses[i]] = launchReward[_addresses[i]].add(_exaEsAmount);
+        }
+    }
+
+    function giveLaunchRewardSeperate(address[] memory _addresses, uint256[] memory _exaEsAmounts) public onlyOwner {
+        for(uint256 i = 0; i < _addresses.length; i++) {
+            launchRewardBucket = launchRewardBucket.sub(_exaEsAmounts[i]);
+            launchReward[_addresses[i]] = launchReward[_addresses[i]].add(_exaEsAmounts[i]);
         }
     }
 
@@ -457,20 +479,20 @@ contract TimeAlly {
     }
 
     function seeMaxLoaningAmountOnUserStakings(address _userAddress, uint256[] memory _stakingIds) public view returns (uint256) {
-        uint256 _currentMonth = getCurrentMonth();
+        //uint256 _currentMonth = getCurrentMonth();
         //require(_currentMonth >= _atMonth, 'cannot see future stakings');
 
         uint256 userStakingsExaEsAmount;
 
         for(uint256 i = 0; i < _stakingIds.length; i++) {
-
-            if(isStakingActive(_userAddress, _stakingIds[i], _currentMonth, _currentMonth)
+            if(stakings[_userAddress][_stakingIds[i]].status == 1
+            //if(isStakingActive(_userAddress, _stakingIds[i], _currentMonth, _currentMonth)
               // && !stakings[_userAddress][_stakingIds[i]].isMonthClaimed[_currentMonth]
             ) {
                 userStakingsExaEsAmount = userStakingsExaEsAmount
-                    .add(stakings[_userAddress][_stakingIds[i]].exaEsAmount
-                    .mul(stakingPlans[ stakings[_userAddress][_stakingIds[i]].stakingPlanId ].fractionFrom15)
-                    .div(15));
+                    .add(stakings[_userAddress][_stakingIds[i]].exaEsAmount);
+                    // .mul(stakingPlans[ stakings[_userAddress][_stakingIds[i]].stakingPlanId ].fractionFrom15)
+                    // .div(15));
             }
         }
 
@@ -485,14 +507,14 @@ contract TimeAlly {
 
         for(uint256 i = 0; i < _stakingIds.length; i++) {
 
-            if( isStakingActive(msg.sender, _stakingIds[i], _currentMonth, _currentMonth) ) {
-
+            //if( isStakingActive(msg.sender, _stakingIds[i], _currentMonth, _currentMonth) ) {
+            if( stakings[msg.sender][_stakingIds[i]].status == 1 ) {
                 // store sum in a number
                 _userStakingsExaEsAmount = _userStakingsExaEsAmount
                     .add(
                         stakings[msg.sender][ _stakingIds[i] ].exaEsAmount
-                        .mul( stakingPlans[ stakings[msg.sender][_stakingIds[i]].stakingPlanId ].fractionFrom15 )
-                        .div(15)
+                        // .mul( stakingPlans[ stakings[msg.sender][_stakingIds[i]].stakingPlanId ].fractionFrom15 )
+                        // .div(15)
                 );
 
                 // subtract total active stakings
@@ -577,5 +599,9 @@ contract TimeAlly {
             }
         }
 
+    }
+
+    function nomineeWithdraw() public {
+        
     }
 }
