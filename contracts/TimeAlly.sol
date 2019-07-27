@@ -26,7 +26,7 @@ final the earthSecondsInMonth amount in TimeAlly as well in NRT
 
 /// @author The EraSwap Team
 /// @title TimeAlly Smart Contract
-/// @dev all require statement
+/// @dev all require statement message strings are commented to make contract deployable by lower the deploying gas fee
 contract TimeAlly {
     using SafeMath for uint256;
 
