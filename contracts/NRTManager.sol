@@ -27,7 +27,7 @@ contract NRTManager {
     address public researchAndDevelopment = 0xb209B4cec04cE9C0E1Fa741dE0a8566bf70aDbe9;
     address public powerToken = 0xbc24BfAC401860ce536aeF9dE10EF0104b09f657;
     address public timeSwappers = 0x4b65109E11CF0Ff8fA58A7122a5E84e397C6Ceb8;                 // which include powerToken , curators ,timeTraders , daySwappers
-    address public timeAlly;                     //address of timeAlly Contract
+    address public timeAlly;   /// @dev address of timeAlly Contract set when called UpdateAddresses function on this contract
 
 
     uint256 public newTalentsAndPartnershipsBal; // variable to store last NRT released to the address;
