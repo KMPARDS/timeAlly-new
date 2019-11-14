@@ -2,8 +2,10 @@ const assert = require('assert');
 const ethers = require('ethers');
 
 const ganache = require('ganache-cli');
-console.log('\nGenerating 2500 demo accounts...');
-const provider = new ethers.providers.Web3Provider(ganache.provider({ gasLimit: 8100000, total_accounts: 2501 }));
+
+const numberOfAccounts = 1000;
+console.log(`\nGenerating ${numberOfAccounts} demo accounts...`);
+const provider = new ethers.providers.Web3Provider(ganache.provider({ gasLimit: 8100000, total_accounts: numberOfAccounts }));
 
 const eraSwapTokenJSON = require('./build/Eraswap_0.json');
 const nrtManagerJSON = require('./build/NRTManager_0.json');
@@ -16,6 +18,7 @@ let accounts
 
 (async() => {
   accounts = await provider.listAccounts();
+  console.log('numberOfAccounts created', accounts.length);
   console.log('Done\n');
 
 
@@ -66,29 +69,37 @@ let accounts
 
   // creating plans
   await Promise.all([
-    timeAllyInstance[0].createStakingPlan(12, 13),
-    timeAllyInstance[0].createStakingPlan(24, 15)
+    timeAllyInstance[0].createStakingPlan(12, 13, false),
+    timeAllyInstance[0].createStakingPlan(24, 15, false)
   ]);
 
 
   //await eraSwapInstance[0].functions.transfer(accounts[accountId], ethers.utils.parseEther(amount));
 
-  await eraSwapInstance[0].functions.approve(timeAllyInstance[0].address, ethers.utils.parseEther('30').mul(200));
+  await eraSwapInstance[0].functions.approve(timeAllyInstance[0].address, ethers.utils.parseEther('30').mul(2000));
 
-  await timeAllyInstance[0].functions.topupRewardBucket(ethers.utils.parseEther('30').mul(200));
+  await timeAllyInstance[0].functions.topupRewardBucket(ethers.utils.parseEther('30')
+  .mul(2000));
 
-  const sendAccounts = [accounts[1]];
+
   //let n = 1;
-  let i;
-  for(i = 2; i < 1900; i++) {
-    sendAccounts.push(accounts[i]);
-    n = i;
-  }
+  let i = 600;
 
-  while(i < 2500) {
-    console.log(`for ${i}, gas needed is`,(await timeAllyInstance[0].estimate.giveLaunchReward(sendAccounts, ethers.utils.parseEther('30'))).toString());
+  while(i < numberOfAccounts) {
+    const sendAccounts = [];
+    const amounts = [];
 
-    sendAccounts.push(accounts[i++]);
+    for(j = 1; j < i; j++) {
+      sendAccounts.push(accounts[i]);
+      amounts.push(ethers.utils.parseEther('30'));
+      // n = i;
+    }
+    console.log(`for ${i}, gas needed is`,(
+      await timeAllyInstance[0].estimate.giveLaunchReward(sendAccounts, amounts)
+    ).toString());
+
+    i = i + 1;
+    // sendAccounts.push(accounts[i++]);
     //console.log(accounts[n++]);
 
   }

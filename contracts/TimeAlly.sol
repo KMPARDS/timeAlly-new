@@ -159,7 +159,7 @@ contract TimeAlly {
         owner = msg.sender;
         token = Eraswap(_tokenAddress);
         nrtManager = NRTManager(_nrtAddress);
-        deployedTimestamp = now;
+        deployedTimestamp = token.mou();
         timeAllyMonthlyNRT.push(0); /// @dev first month there is no NRT released
     }
 
@@ -229,7 +229,7 @@ contract TimeAlly {
 
         stakings[msg.sender].push(Staking({
             exaEsAmount: _exaEsAmount,
-            timestamp: now,
+            timestamp: token.mou(),
             stakingMonth: getCurrentMonth(),
             stakingPlanId: _stakingPlanId,
             status: 1,
@@ -258,12 +258,12 @@ contract TimeAlly {
     /// @notice this function is used to send rewards to multiple users
     /// @param _addresses - array of address to send rewards
     /// @param _exaEsAmountArray - array of ExaES amounts sent to each address of _addresses with same index
-    function giveLaunchReward(address[] memory _addresses, uint256[] memory _exaEsAmountArray) public onlyOwner {
-        for(uint256 i = 0; i < _addresses.length; i++) {
-            launchReward[msg.sender] = launchReward[msg.sender].sub(_exaEsAmountArray[i]);
-            launchReward[_addresses[i]] = launchReward[_addresses[i]].add(_exaEsAmountArray[i]);
-        }
-    }
+    // function giveLaunchReward(address[] memory _addresses, uint256[] memory _exaEsAmountArray) public onlyOwner {
+    //     for(uint256 i = 0; i < _addresses.length; i++) {
+    //         launchReward[msg.sender] = launchReward[msg.sender].sub(_exaEsAmountArray[i]);
+    //         launchReward[_addresses[i]] = launchReward[_addresses[i]].add(_exaEsAmountArray[i]);
+    //     }
+    // }
 
     /// @notice this function is used by rewardees to claim their accrued rewards. This is also used by stakers to restake their 50% benefit received as rewards
     /// @param _stakingPlanId - rewardee can choose plan while claiming rewards as stakings
@@ -292,7 +292,7 @@ contract TimeAlly {
 
         stakings[msg.sender].push(Staking({
             exaEsAmount: reward,
-            timestamp: now,
+            timestamp: token.mou(),
             stakingMonth: getCurrentMonth(),
             stakingPlanId: _stakingPlanId,
             status: 1,
@@ -329,7 +329,7 @@ contract TimeAlly {
             /// @dev if _atMonth is current Month, then withdrawal should be allowed only after 30 days interval since staking
             && (
               getCurrentMonth() != _atMonth
-              || now >= stakings[_userAddress][_stakingId].timestamp
+              || token.mou() >= stakings[_userAddress][_stakingId].timestamp
                           .add(
                             getCurrentMonth()
                               .sub(stakings[_userAddress][_stakingId].stakingMonth)
@@ -419,7 +419,7 @@ contract TimeAlly {
     /// @param _stakingIds - input which stakings to withdraw
     function withdrawExpiredStakings(uint256[] memory _stakingIds) public {
         for(uint256 i = 0; i < _stakingIds.length; i++) {
-            require(now >= stakings[msg.sender][_stakingIds[i]].timestamp
+            require(token.mou() >= stakings[msg.sender][_stakingIds[i]].timestamp
                     .add(stakingPlans[ stakings[msg.sender][_stakingIds[i]].stakingPlanId ].months.mul(earthSecondsInMonth))
               // , 'cannot withdraw before staking ends'
             );
@@ -448,7 +448,7 @@ contract TimeAlly {
                 && (
                   // @dev if urgent loan is not allowed then loan can be taken only after staking period is completed 75%
                   stakingPlans[ stakings[_userAddress][_stakingIds[i]].stakingPlanId ].isUrgentLoanAllowed
-                  || now > stakings[_userAddress][_stakingIds[i]].timestamp + stakingPlans[ stakings[_userAddress][_stakingIds[i]].stakingPlanId ].months.mul(earthSecondsInMonth).mul(75).div(100)
+                  || token.mou() > stakings[_userAddress][_stakingIds[i]].timestamp + stakingPlans[ stakings[_userAddress][_stakingIds[i]].stakingPlanId ].months.mul(earthSecondsInMonth).mul(75).div(100)
                 )
             ) {
                 userStakingsExaEsAmount = userStakingsExaEsAmount
@@ -480,7 +480,7 @@ contract TimeAlly {
                 && (
                   // @dev if urgent loan is not allowed then loan can be taken only after staking period is completed 75%
                   stakingPlans[ stakings[msg.sender][_stakingIds[i]].stakingPlanId ].isUrgentLoanAllowed
-                  || now > stakings[msg.sender][_stakingIds[i]].timestamp + stakingPlans[ stakings[msg.sender][_stakingIds[i]].stakingPlanId ].months.mul(earthSecondsInMonth).mul(75).div(100)
+                  || token.mou() > stakings[msg.sender][_stakingIds[i]].timestamp + stakingPlans[ stakings[msg.sender][_stakingIds[i]].stakingPlanId ].months.mul(earthSecondsInMonth).mul(75).div(100)
                 )
             ) {
 
@@ -526,7 +526,7 @@ contract TimeAlly {
 
         loans[msg.sender].push(Loan({
             exaEsAmount: _exaEsAmount,
-            timestamp: now,
+            timestamp: token.mou(),
             loanPlanId: _loanPlanId,
             status: 1,
             stakingIds: _stakingIds
@@ -546,7 +546,7 @@ contract TimeAlly {
           // , 'can only repay pending loans'
         );
 
-        require(loans[msg.sender][_loanId].timestamp + loanPlans[ loans[msg.sender][_loanId].loanPlanId ].loanMonths.mul(earthSecondsInMonth) > now
+        require(loans[msg.sender][_loanId].timestamp + loanPlans[ loans[msg.sender][_loanId].loanPlanId ].loanMonths.mul(earthSecondsInMonth) > token.mou()
           // , 'cannot repay expired loan'
         );
 
@@ -584,7 +584,7 @@ contract TimeAlly {
                 // , 'loan should not be repayed'
             );
             require(
-                now >
+                token.mou() >
                 loans[ _addressArray[i] ][ _loanIdArray[i] ].timestamp
                 + loanPlans[ loans[ _addressArray[i] ][ _loanIdArray[i] ].loanPlanId ].loanMonths.mul(earthSecondsInMonth)
                 // , 'loan should have crossed its loan period'
@@ -669,7 +669,7 @@ contract TimeAlly {
     /// @param _stakingId - staking id
     function nomineeWithdraw(address _userAddress, uint256 _stakingId) public {
         // end time stamp > 0
-        uint256 currentTime = now;
+        uint256 currentTime = token.mou();
         require( currentTime > (stakings[_userAddress][_stakingId].timestamp
                     + stakingPlans[stakings[_userAddress][_stakingId].stakingPlanId].months * earthSecondsInMonth
                     + 12 * earthSecondsInMonth )
@@ -713,7 +713,7 @@ contract TimeAlly {
             }
         }
 
-        // now we have _pendingLiquidAmountInStaking && _pendingAccruedAmountInStaking
+        // token.mou() we have _pendingLiquidAmountInStaking && _pendingAccruedAmountInStaking
         // on which user's share will be calculated and sent
 
         // marking nominee as claimed by removing his shares

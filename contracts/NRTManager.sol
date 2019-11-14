@@ -194,7 +194,7 @@ contract NRTManager {
       */
 
       function MonthlyNRTRelease() external returns (bool) {
-        require(now.sub(lastNRTRelease)> 2629744,"NRT release happens once every month");
+        require(token.mou().sub(lastNRTRelease)> 2629744,"NRT release happens once every month");
         uint256 NRTBal = monthlyNRTAmount.add(luckPoolBal);        // Total NRT available.
 
         // Calculating NRT to be released to each of the pools
@@ -265,7 +265,7 @@ contract NRTManager {
 
     constructor(address eraswaptoken) public{
       token = Eraswap(eraswaptoken);
-      lastNRTRelease = now;
+      lastNRTRelease = token.mou();
       annualNRTAmount = 819000000000000000000000000;
       monthlyNRTAmount = annualNRTAmount.div(uint256(12));
       monthCount = 0;

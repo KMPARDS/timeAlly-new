@@ -197,6 +197,7 @@ describe('Staking', async() => {
     it(`account ${accountId} gives allowance of ${amount} ES to timeAlly`, async() => {
       eraSwapInstance[accountId] = new ethers.Contract(eraSwapInstance[0].address, eraSwapTokenJSON.abi, provider.getSigner(accounts[accountId]));
       await eraSwapInstance[accountId].functions.approve(timeAllyInstance[0].address, ethers.utils.parseEther(amount));
+      console.log(Number(await eraSwapInstance[accountId].estimate.approve(timeAllyInstance[0].address, ethers.utils.parseEther(amount))));
       const allowance = await eraSwapInstance[0].functions.allowance(accounts[accountId], timeAllyInstance[0].address);
       assert.ok( allowance.eq(ethers.utils.parseEther(amount)) );
     });
@@ -206,6 +207,8 @@ describe('Staking', async() => {
 
       const userBalanceOld = await eraSwapInstance[0].functions.balanceOf(accounts[accountId]);
       const timeAllyBalanceOld = await eraSwapInstance[0].functions.balanceOf(timeAllyInstance[0].address);
+
+      console.log(Number(await timeAllyInstance[accountId].estimate.newStaking(ethers.utils.parseEther(amount), planId)));
 
       await timeAllyInstance[accountId].functions.newStaking(ethers.utils.parseEther(amount), planId);
 
@@ -236,7 +239,7 @@ describe('Staking', async() => {
 
 describe('first month in TimeAlly', async() => {
   it('time travelling to the future by 1 month and half day using mou() time machine', async() => {
-    console.log(await timeAllyInstance[0].functions.stakings(accounts[1],0));
+    // console.log(await timeAllyInstance[0].functions.stakings(accounts[1],0));
 
     const currentTime = await eraSwapInstance[0].mou();
     const depth = 30.5 * 24 * 60 * 60;
@@ -250,12 +253,30 @@ describe('first month in TimeAlly', async() => {
   });
 
   it('invoking MonthlyNRTRelease in NRT contract and checking if TimeAlly gets 10237500 ES in first month nrt', async() => {
+
+
+    // sending tokens to NRT and updating burn balance;
+    const we1 = await eraSwapInstance[0].functions.totalSupply();
+    // const tempWallet = new ethers.Wallet('C8C32AE192AB75269C4F1BC030C2E97CC32E63B80B0A3CA008752145CF7ACEEA', provider);
+    //
+    // const tempEs = new ethers.Contract(eraSwapInstance[0].address, eraSwapTokenJSON.abi, tempWallet);
+    // const tempNrt = new ethers.Contract(nrtManagerInstance[0].address, nrtManagerJSON.abi, tempWallet);
+    //
+    // await eraSwapInstance[0].transfer(tempNrt.address, ethers.utils.parseEther('100000'));
+    //
+    // await provider.getSigner(accounts[0]).sendTransaction({
+    //   to: tempWallet.address,
+    //   value: ethers.utils.parseEther('1')
+    // });
+    // await tempNrt.functions.UpdateBurnBal(ethers.utils.parseEther('20'));
+
     const timeAllyBalance = await eraSwapInstance[0].balanceOf(timeAllyInstance[0].address);
-    await nrtManagerInstance[0].MonthlyNRTRelease();
+    const tx = await nrtManagerInstance[0].MonthlyNRTRelease();
+    console.log(await tx.wait());
     const timeAllyBalanceNew = await eraSwapInstance[0].balanceOf(timeAllyInstance[0].address);
 
     timeAllyMonthlyNRTfirstMonth = await timeAllyInstance[0].functions.timeAllyMonthlyNRT(1);
-    //console.log(timeAllyMonthlyNRTfirstMonth.toString());
+    console.log(timeAllyMonthlyNRTfirstMonth.toString());
 
     assert.ok(timeAllyBalanceNew.gt(timeAllyBalance), 'TimeAlly should get some NRT');
     //assert.ok(timeAllyMonthlyNRTfirstMonth.eq(ethers.utils.parseEther('10237500')), 'NRT should go in the array');
@@ -264,6 +285,8 @@ describe('first month in TimeAlly', async() => {
     const timeAllyMonthlyNRTthisMonth = await timeAllyInstance[0].functions.timeAllyMonthlyNRT(await timeAllyInstance[0].getCurrentMonth());
 
     console.log('timeAllyMonthlyNRTthisMonth', ethers.utils.formatEther(timeAllyMonthlyNRTthisMonth));
+    const we2 = await eraSwapInstance[0].functions.totalSupply();
+    console.log('burned', ethers.utils.formatEther(we1.sub(we2)));
   });
 
   // it('account 1 tries to see his/her benefit gets something as benefit', async() => {
@@ -289,36 +312,43 @@ describe('first month in TimeAlly', async() => {
     //   await eraSwapInstance[0].goToPast(depth);
     // });
 
-    it(`account ${accountId} tries to see his/her benefit but gets error as he/she staked 10 days later`, async() => {
+    it(`account ${accountId} tries to see his/her benefit but gets 0.0 ES as he/she staked 10 days later`, async() => {
       const currentMonth = await timeAllyInstance[0].getCurrentMonth();
       let benefit;
-      try {
+      // try {
         benefit = await timeAllyInstance[0].functions.seeBenefitOfAStakingByMonths(
           accounts[accountId],
           0, // staking id
           [currentMonth]);
         console.log('benefit',benefit);
-        assert(false, 'should get error')
-      } catch (err) {
-        assert.ok(err.message.includes('revert'), 'should get error');
-      }
+        assert.ok(benefit.eq(0), 'should see 0.0 ES');
+        // assert(false, 'should get error')
+      // } catch (err) {
+      //   assert.ok(err.message.includes('revert'), 'should get error');
+      // }
     });
 
-    it(`account ${accountId} tries to withdraw his/her benefit get error as he/she staked 10 days later`, async() => {
+    it(`account ${accountId} tries to withdraw his/her benefit gets 0.0 ES as he/she staked 10 days later`, async() => {
       const currentMonth = await timeAllyInstance[0].getCurrentMonth();
       // const numberOfStakings = await timeAllyInstance[0].functions
       //   .getNumberOfStakingsByUser(accounts[1]);
       // let stakingIdsArray = [];
       // for(let i = 0; i < numberOfStakings; i++) stakingIdsArray.push(i);
-      try {
+      // try {
+        const oldBalance = await eraSwapInstance[0].functions.balanceOf(accounts[accountId]);
+
         const tx = await timeAllyInstance[accountId].functions
           .withdrawBenefitOfAStakingByMonths(0, [currentMonth]);
         await tx.wait();
-        assert(false, 'should get error');
-      } catch (e) {
-        console.log(e.message);
-        assert(e.message.includes('revert'), 'should get error');
-      }
+
+        const newBalance = await eraSwapInstance[0].functions.balanceOf(accounts[accountId]);
+
+        assert.ok(newBalance.sub(oldBalance).eq(0), 'should get 0.0 ES');
+        // assert(false, 'should get error');
+      // } catch (e) {
+      //   console.log(e.message);
+      //   assert(e.message.includes('revert'), 'should get error');
+      // }
     });
 
 
